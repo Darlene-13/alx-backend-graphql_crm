@@ -2,11 +2,16 @@
 """
 Database seeding script for CRM GraphQL project
 Run this with: python seed_db.py
+Make sure to run from the directory containing manage.py
 """
 
 import os
+import sys
 import django
 from decimal import Decimal
+
+# Add the current directory to Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Setup Django environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'alx_backend_graphql_crm.settings')
