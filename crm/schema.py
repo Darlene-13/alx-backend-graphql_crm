@@ -1,5 +1,6 @@
 import graphene
 from graphene_django import DjangoObjectType
+from graphene_django.filter import DjangoFilterConnectionField
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -7,6 +8,7 @@ from decimal import Decimal
 import re
 
 from .models import Customer, Product, Order
+from .filters import CustomerFilter, ProductFilter, OrderFilter
 
 
 # GraphQL Types
@@ -14,21 +16,57 @@ class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
         fields = "__all__"
+        filter_fields = ['name', 'email', 'phone']
+        interfaces = (graphene.relay.Node, )
 
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
         fields = "__all__"
+        filter_fields = ['name', 'price', 'stock']
+        interfaces = (graphene.relay.Node, )
 
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
         fields = "__all__"
+        filter_fields = ['total_amount', 'order_date']
+        interfaces = (graphene.relay.Node, )
 
 
-# Input Types
+# Input Types for Filtering
+class CustomerFilterInput(graphene.InputObjectType):
+    name = graphene.String(description="Filter by customer name (case-insensitive partial match)")
+    email = graphene.String(description="Filter by email (case-insensitive partial match)")
+    created_at_gte = graphene.DateTime(description="Filter customers created after this date")
+    created_at_lte = graphene.DateTime(description="Filter customers created before this date")
+    phone_pattern = graphene.String(description="Filter by phone pattern (e.g., '+1' for US numbers)")
+
+
+class ProductFilterInput(graphene.InputObjectType):
+    name = graphene.String(description="Filter by product name (case-insensitive partial match)")
+    price_gte = graphene.Decimal(description="Filter products with price >= this value")
+    price_lte = graphene.Decimal(description="Filter products with price <= this value")
+    stock_gte = graphene.Int(description="Filter products with stock >= this value")
+    stock_lte = graphene.Int(description="Filter products with stock <= this value")
+    low_stock = graphene.Boolean(description="Filter products with low stock (< 10)")
+
+
+class OrderFilterInput(graphene.InputObjectType):
+    total_amount_gte = graphene.Decimal(description="Filter orders with total amount >= this value")
+    total_amount_lte = graphene.Decimal(description="Filter orders with total amount <= this value")
+    order_date_gte = graphene.DateTime(description="Filter orders placed after this date")
+    order_date_lte = graphene.DateTime(description="Filter orders placed before this date")
+    customer_name = graphene.String(description="Filter orders by customer name")
+    customer_email = graphene.String(description="Filter orders by customer email")
+    product_name = graphene.String(description="Filter orders by product name")
+    product_id = graphene.Int(description="Filter orders that include a specific product ID")
+    high_value = graphene.Boolean(description="Filter high-value orders (> $500)")
+
+
+# Input Types for Mutations (keeping existing ones)
 class CustomerInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     email = graphene.String(required=True)
@@ -47,7 +85,7 @@ class OrderInput(graphene.InputObjectType):
     order_date = graphene.DateTime()
 
 
-# Mutation Classes
+# Mutation Classes (keeping all existing mutations)
 class CreateCustomer(graphene.Mutation):
     class Arguments:
         input = CustomerInput(required=True)
@@ -68,7 +106,7 @@ class CreateCustomer(graphene.Mutation):
             
             # Validate phone format if provided
             if input.phone:
-                phone_pattern = r'^\+?1?-?\d{3}-?\d{3}-?\d{4}$|^\+?\d{10,15}$'
+                phone_pattern = r'^\+?1?-?\d{3}-?\d{3}-?\d{4}$|^\+?\d{10,15}
                 if not re.match(phone_pattern, input.phone):
                     return CreateCustomer(
                         customer=None,
@@ -119,7 +157,7 @@ class BulkCreateCustomers(graphene.Mutation):
                     
                     # Validate phone if provided
                     if customer_data.phone:
-                        phone_pattern = r'^\+?1?-?\d{3}-?\d{3}-?\d{4}$|^\+?\d{10,15}$'
+                        phone_pattern = r'^\+?1?-?\d{3}-?\d{3}-?\d{4}$|^\+?\d{10,15}
                         if not re.match(phone_pattern, customer_data.phone):
                             errors.append(f"Customer {i+1}: Invalid phone format")
                             continue
@@ -259,8 +297,9 @@ class CreateOrder(graphene.Mutation):
             )
 
 
-# Query Class
+# Query Class with Filtering Support
 class Query(graphene.ObjectType):
+    # Basic queries (existing)
     customers = graphene.List(CustomerType)
     products = graphene.List(ProductType)
     orders = graphene.List(OrderType)
@@ -269,6 +308,31 @@ class Query(graphene.ObjectType):
     product = graphene.Field(ProductType, id=graphene.ID(required=True))
     order = graphene.Field(OrderType, id=graphene.ID(required=True))
     
+    # Filtered queries with Connection support
+    all_customers = DjangoFilterConnectionField(CustomerType, filterset_class=CustomerFilter)
+    all_products = DjangoFilterConnectionField(ProductType, filterset_class=ProductFilter)
+    all_orders = DjangoFilterConnectionField(OrderType, filterset_class=OrderFilter)
+    
+    # Custom filtered queries with input types
+    filter_customers = graphene.List(
+        CustomerType,
+        filter=CustomerFilterInput(),
+        order_by=graphene.String(description="Order by field (prefix with '-' for descending)")
+    )
+    
+    filter_products = graphene.List(
+        ProductType,
+        filter=ProductFilterInput(),
+        order_by=graphene.String(description="Order by field (prefix with '-' for descending)")
+    )
+    
+    filter_orders = graphene.List(
+        OrderType,
+        filter=OrderFilterInput(),
+        order_by=graphene.String(description="Order by field (prefix with '-' for descending)")
+    )
+    
+    # Basic resolvers
     def resolve_customers(self, info):
         return Customer.objects.all()
     
@@ -295,6 +359,46 @@ class Query(graphene.ObjectType):
             return Order.objects.select_related('customer').prefetch_related('products').get(id=id)
         except Order.DoesNotExist:
             return None
+    
+    # Custom filtered query resolvers
+    def resolve_filter_customers(self, info, filter=None, order_by=None):
+        queryset = Customer.objects.all()
+        
+        if filter:
+            # Apply filters using the CustomerFilter
+            filter_instance = CustomerFilter(data=filter, queryset=queryset)
+            queryset = filter_instance.qs
+        
+        if order_by:
+            queryset = queryset.order_by(order_by)
+        
+        return queryset
+    
+    def resolve_filter_products(self, info, filter=None, order_by=None):
+        queryset = Product.objects.all()
+        
+        if filter:
+            # Apply filters using the ProductFilter
+            filter_instance = ProductFilter(data=filter, queryset=queryset)
+            queryset = filter_instance.qs
+        
+        if order_by:
+            queryset = queryset.order_by(order_by)
+        
+        return queryset
+    
+    def resolve_filter_orders(self, info, filter=None, order_by=None):
+        queryset = Order.objects.all().select_related('customer').prefetch_related('products')
+        
+        if filter:
+            # Apply filters using the OrderFilter
+            filter_instance = OrderFilter(data=filter, queryset=queryset)
+            queryset = filter_instance.qs
+        
+        if order_by:
+            queryset = queryset.order_by(order_by)
+        
+        return queryset
 
 
 # Mutation Class

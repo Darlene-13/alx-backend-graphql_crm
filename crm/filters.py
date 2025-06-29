@@ -1,5 +1,5 @@
 import django_filters
-from django.db.models import Q
+from django.db.models import Q, Count
 from .models import Customer, Product, Order
 
 
@@ -182,7 +182,7 @@ class OrderFilter(django_filters.FilterSet):
         """Custom filter for orders with specific number of products"""
         if value:
             return queryset.annotate(
-                product_count=django_filters.Count('products')
+                product_count=Count('products')
             ).filter(product_count=value)
         return queryset
     
