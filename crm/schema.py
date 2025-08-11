@@ -1,4 +1,5 @@
 import graphene
+from crm.models import Product
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from django.core.exceptions import ValidationError
@@ -7,7 +8,7 @@ from django.utils import timezone
 from decimal import Decimal
 import re
 from crm.models import Customer, Product, Order
-from ..crm.filters import CustomerFilter, ProductFilter, OrderFilter
+from crm.filters import CustomerFilter, ProductFilter, OrderFilter
 
 
 # GraphQL Types
