@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'graphene_django',
     'django_filters',
     'corsheaders',
+    'django_celery_beat',
     'django_crontab',  # Required for Task 2
     
     # Local apps
