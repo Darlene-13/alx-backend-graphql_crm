@@ -297,6 +297,52 @@ class CreateOrder(graphene.Mutation):
             )
 
 
+# NEW: UpdateLowStockProducts Mutation
+class UpdateLowStockProducts(graphene.Mutation):
+    updated_products = graphene.List(ProductType)
+    message = graphene.String()
+    success = graphene.Boolean()
+    count = graphene.Int()
+    
+    def mutate(self, info):
+        try:
+            # Query products with stock < 10
+            low_stock_products = Product.objects.filter(stock__lt=10)
+            
+            if not low_stock_products.exists():
+                return UpdateLowStockProducts(
+                    updated_products=[],
+                    message="No low stock products found",
+                    success=True,
+                    count=0
+                )
+            
+            updated_products = []
+            
+            # Update stock for each low stock product
+            with transaction.atomic():
+                for product in low_stock_products:
+                    # Increment stock by 10
+                    product.stock += 10
+                    product.save(update_fields=['stock'])
+                    updated_products.append(product)
+            
+            return UpdateLowStockProducts(
+                updated_products=updated_products,
+                message=f"Successfully updated {len(updated_products)} low stock products",
+                success=True,
+                count=len(updated_products)
+            )
+            
+        except Exception as e:
+            return UpdateLowStockProducts(
+                updated_products=[],
+                message=f"Error updating low stock products: {str(e)}",
+                success=False,
+                count=0
+            )
+
+
 # Query Class with Filtering Support
 class Query(graphene.ObjectType):
     # Basic queries (existing)
@@ -401,9 +447,10 @@ class Query(graphene.ObjectType):
         return queryset
 
 
-# Mutation Class
+# Mutation Class - UPDATED to include UpdateLowStockProducts
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
+    update_low_stock_products = UpdateLowStockProducts.Field()  # NEW mutation

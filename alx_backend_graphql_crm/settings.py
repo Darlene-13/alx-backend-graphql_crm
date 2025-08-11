@@ -135,3 +135,15 @@ GRAPHENE = {
     "SCHEMA": "schema.schema"
 }
 
+# Django Crontab Configuration
+CRONJOBS = [
+    # Existing cron job from previous task
+    ('*/5 * * * *', 'crm.cron.log_crm_heartbeat'),
+    
+    # NEW: Low stock update job - runs every 12 hours at minute 0
+    ('0 */12 * * *', 'crm.cron.update_low_stock'),
+]
+
+# Optional: Configure cron job behavior
+CRONTAB_LOCK_JOBS = True  # Prevents overlapping job execution
+CRONTAB_COMMAND_PREFIX = ''  # Custom prefix for cron commands
