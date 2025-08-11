@@ -49,7 +49,7 @@ def generate_crm_report():
         )
         
         # Log the report to file (ALX expects this exact path)
-        log_file_path = '/tmp/crmreportlog.txt'
+        log_file_path = '/tmp/crm_report_log.txt'
         with open(log_file_path, 'a') as f:
             f.write(report_message)
         
@@ -81,7 +81,7 @@ def generate_crm_report():
         error_message = f"{timestamp} - ERROR generating report: {str(exc)}\n"
         
         try:
-            with open('/tmp/crmreportlog.txt', 'a') as f:
+            with open('/tmp/crm_report_log.txt', 'a') as f:
                 f.write(error_message)
         except:
             pass  # Avoid secondary errors
@@ -121,7 +121,7 @@ def generate_crm_report_with_retry(self):
         )
         
         # Log the report to file
-        log_file_path = '/tmp/crmreportlog.txt'
+        log_file_path = '/tmp/crm_report_log.txt'
         with open(log_file_path, 'a') as f:
             f.write(report_message)
         
@@ -140,7 +140,7 @@ def generate_crm_report_with_retry(self):
         error_message = f"{timestamp} - ERROR generating report: {str(exc)}\n"
         
         try:
-            with open('/tmp/crmreportlog.txt', 'a') as f:
+            with open('/tmp/crm_report_log.txt', 'a') as f:
                 f.write(error_message)
         except:
             pass  # Avoid secondary errors
@@ -294,7 +294,7 @@ def cleanup_old_reports(self):
         dict: Cleanup result
     """
     try:
-        log_file_path = '/tmp/crmreportlog.txt'
+        log_file_path = '/tmp/crm_report_log.txt'
         
         if not os.path.exists(log_file_path):
             return {'success': True, 'message': 'No log file to clean'}
