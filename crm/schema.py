@@ -6,8 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
 import re
-
-from ..crm.models import Customer, Product, Order
+from crm.models import Customer, Product, Order
 from ..crm.filters import CustomerFilter, ProductFilter, OrderFilter
 
 
